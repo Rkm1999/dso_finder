@@ -1,56 +1,100 @@
 <!-- app.vue -->
 <template>
-  <div>
-    <h1>DSO Finder</h1>
-    <div>Latitude: {{ latitude.toFixed(2) }}</div>
-    <div>Longitude: {{ longitude.toFixed(2) }}</div>
-    <button @click="requestGPSPermission">Request GPS Permission</button>
-    
-    <h2>Raw Gyro Data</h2>
-    <div>Raw Azimuth: {{ rawAzimuth.toFixed(2) }}</div>
-    <div>Raw Altitude: {{ rawAltitude.toFixed(2) }}</div>
-
-    <h2>Calibrated Gyro Data</h2>
-    <div>Calibrated Azimuth: {{ azimuth.toFixed(2) }}</div>
-    <div>Calibrated Altitude: {{ altitude.toFixed(2) }}</div>
-
-    <button @click="requestOrientationPermission">Request Orientation Permission</button>
-
-    <h2>Time</h2>
-    <div>Local Time: {{ localTime }}</div>
-    <div v-if="results">
-      <h2>RA/DEC Coordinates</h2>
-      <div>J2000 RA: {{ results.j2000_ra.toFixed(2) }}</div>
-      <div>J2000 DEC: {{ results.j2000_dec.toFixed(2) }}</div>
-    </div>
-    <div>
-      <h2>Target Coordinates</h2>
-      <input v-model="target_ra" placeholder="Target RA (hours)">
-      <input v-model="target_dec" placeholder="Target DEC (degrees)">
-      <button @click="startCalculatingDistance">Calculate Distance</button>
-      <button @click="stopCalculatingDistance">Stop</button>
-      <div v-if="angularDistance != null">
-        <h3>Angular Distance to Target</h3>
-        <div>{{ angularDistance.toFixed(2) }} degrees</div>
+  <div id="app">
+    <div class="row">
+      <div class="column">
+        <h2>GPS Coordinate</h2>
+        <div>{{ latitude.toFixed(2) }}, {{ longitude.toFixed(2) }}</div>
+      </div>
+      <div class="column">
+        <h2>Local Time</h2>
+        <div>{{ localTime }}</div>
       </div>
     </div>
-    <div>
-      <h2>Calibrate Gyro</h2>
-      <input v-model="star_ra" placeholder="Enter RA (hours)">
-      <input v-model="star_dec" placeholder="Enter DEC (degrees)">
-      <button @click="calibrateGyro">Calibrate</button>
+
+    <div class="row">
+      <div class="column">
+        <h2>Altitude and Azimuth</h2>
+        <div>Alt: {{ altitude.toFixed(2) }}</div>
+        <div>Az: {{ azimuth.toFixed(2) }}</div>
+      </div>
+      <div class="column">
+        <h2>RA/DEC Coordinates</h2>
+        <div v-if="results">
+          <div>RA: {{ results.j2000_ra.toFixed(2) }}</div>
+          <div>DEC: {{ results.j2000_dec.toFixed(2) }}</div>
+        </div>
+      </div>
     </div>
-    <div v-if="calibrationResult">
-      <h2>Calibration Results</h2>
-      <div>Expected AZ: {{ calibrationResult.expectedAzimuth.toFixed(2) }}</div>
-      <div>Expected ALT: {{ calibrationResult.expectedAltitude.toFixed(2) }}</div>
-      <div>Actual AZ: {{ calibrationResult.actualAzimuth.toFixed(2) }}</div>
-      <div>Actual ALT: {{ calibrationResult.actualAltitude.toFixed(2) }}</div>
-      <div>AZ Correction: {{ calibrationResult.azimuthCorrection.toFixed(2) }}</div>
-      <div>ALT Correction: {{ calibrationResult.altitudeCorrection.toFixed(2) }}</div>
+
+    <div class="row">
+      <div class="column full-width">
+        <button @click="requestGPSPermission">Request GPS Permission</button>
+        <button @click="requestOrientationPermission">Request Gyro Permission</button>
+      </div>
+    </div>
+
+
+    <div class="row">
+      <div class="column full-width">
+        <h2>RA/DEC Input</h2>
+        <input v-model="raInput" placeholder="RA (hours)">
+        <input v-model="decInput" placeholder="DEC (degrees)">
+      </div>
+    </div>
+
+
+    <div class="row">
+      <div class="column full-width">
+        <h2>Calibration and Tracking</h2>
+        <button @click="calibrateGyro">Calibrate Gyro</button>
+        <button @click="startCalculatingDistance">Track Target</button>
+      </div>
+    </div>
+
+
+    <div class="row" v-if="calibrationResult">
+      <div class="column full-width">
+        <h2>Calibration Results</h2>
+        <div>Expected AZ: {{ calibrationResult.expectedAzimuth.toFixed(2) }}</div>
+        <div>Expected ALT: {{ calibrationResult.expectedAltitude.toFixed(2) }}</div>
+        <div>Actual AZ: {{ calibrationResult.actualAzimuth.toFixed(2) }}</div>
+        <div>Actual ALT: {{ calibrationResult.actualAltitude.toFixed(2) }}</div>
+        <div>AZ Correction: {{ calibrationResult.azimuthCorrection.toFixed(2) }}</div>
+        <div>ALT Correction: {{ calibrationResult.altitudeCorrection.toFixed(2) }}</div>
+      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+#app {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.column {
+  flex: 1;
+  padding: 10px;
+  box-sizing: border-box;
+}
+.full-width {
+  flex: 100%;
+}
+input {
+  margin-bottom: 10px;
+  width: 90%;
+}
+button {
+  width: 100%;
+  margin-top: 10px;
+}
+</style>
 
 <script>
 import { Geolocation } from '@capacitor/geolocation';
@@ -76,18 +120,16 @@ export default {
     altitude: 0, // Initialize as a numeric value
       localTime: '',
       results: null,
-      star_ra: '',
-      star_dec: '',
       calibrationResult: null,
       azimuthOffset: 0,
       altitudeOffset: 0,
-      target_ra: '',
-      target_dec: '',
       angularDistance: null,
       angularDistanceIntervalId: null,
       audioContext: null,
       oscillator: null,
       isBeeping: false,
+      raInput: '',
+      decInput: '',
 
 
     };
@@ -193,8 +235,8 @@ export default {
     async calibrateGyro() {
       // Ensure the current positions and local sidereal time are correct
       const jd_ut = this.dateToJulianDate(new Date(this.localTime));
-      const ra = parseFloat(this.star_ra) * Math.PI / 12; // hours to radians
-      const dec = parseFloat(this.star_dec) * Math.PI / 180; // degrees to radians
+      const ra = parseFloat(this.raInput) * Math.PI / 12; // hours to radians
+      const dec = parseFloat(this.decInput) * Math.PI / 180; // degrees to radians
 
       // Get expected azimuth and altitude from astronomical calculations
       const [expectedAzimuth, expectedAltitude] = this.raDecToAltAz(ra, dec, this.latitude * Math.PI / 180, this.longitude * Math.PI / 180, jd_ut);
@@ -261,8 +303,8 @@ export default {
       const observerLonRadians = this.longitude * Math.PI / 180;
 
       // Convert target RA/Dec from hours and degrees to radians
-      const targetRaRadians = parseFloat(this.target_ra) * Math.PI / 12;
-      const targetDecRadians = parseFloat(this.target_dec) * Math.PI / 180;
+      const targetRaRadians = parseFloat(this.raInput) * Math.PI / 12;
+      const targetDecRadians = parseFloat(this.decInput) * Math.PI / 180;
 
       // Get Alt/Az for the target
       const [targetAzimuth, targetAltitude] = this.raDecToAltAz(targetRaRadians, targetDecRadians, observerLatRadians, observerLonRadians, jd_ut);
