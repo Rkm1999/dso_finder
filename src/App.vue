@@ -422,12 +422,7 @@ export default {
       this.calculateAngularDistance(); // Perform an initial calculation
       this.angularDistanceIntervalId = setInterval(() => {
         this.calculateAngularDistance();
-        if (this.angularDistance < 0.5) {
-          this.startBeep();
-        } else {
-          this.stopBeep();
-        }
-      }, 1000); // Update tracking data every second
+      }, 50); // Update tracking data every second
       this.showTrackingOverlay = true;
     },
     
