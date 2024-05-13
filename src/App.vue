@@ -47,22 +47,33 @@
     <div class="row">
       <div class="column full-width">
         <h2>Calibration and Tracking</h2>
-        <button @click="calibrateGyro">Calibrate Gyro</button>
-        <button @click="startCalculatingDistance">Track Target</button>
+        <button @click="openCalibrationPopup">Calibrate Gyro</button>
+        <button @click="startTracking">Track Target</button>
       </div>
     </div>
 
-
-    <div class="row" v-if="calibrationResult">
-      <div class="column full-width">
+    <!-- Modal Popup for Calibration -->
+    <div v-if="showCalibrationPopup" class="modal-overlay" @click="initiateCalibration">
+      <button class="close-button" @click.stop="closeModal">×</button>
+      <h2 v-if="!calibrationResult">Tap anywhere to calibrate the gyro.</h2>
+      <div v-if="calibrationResult">
         <h2>Calibration Results</h2>
-        <div>Expected AZ: {{ calibrationResult.expectedAzimuth.toFixed(2) }}</div>
-        <div>Expected ALT: {{ calibrationResult.expectedAltitude.toFixed(2) }}</div>
-        <div>Actual AZ: {{ calibrationResult.actualAzimuth.toFixed(2) }}</div>
-        <div>Actual ALT: {{ calibrationResult.actualAltitude.toFixed(2) }}</div>
-        <div>AZ Correction: {{ calibrationResult.azimuthCorrection.toFixed(2) }}</div>
-        <div>ALT Correction: {{ calibrationResult.altitudeCorrection.toFixed(2) }}</div>
+        <p>
+          Expected AZ: {{ calibrationResult.expectedAzimuth.toFixed(2) }}<br>
+          Expected ALT: {{ calibrationResult.expectedAltitude.toFixed(2) }}<br>
+          Actual AZ: {{ calibrationResult.actualAzimuth.toFixed(2) }}<br>
+          Actual ALT: {{ calibrationResult.actualAltitude.toFixed(2) }}<br>
+          AZ Correction: {{ calibrationResult.azimuthCorrection.toFixed(2) }}<br>
+          ALT Correction: {{ calibrationResult.altitudeCorrection.toFixed(2) }}
+        </p>
+        <button @click.stop="openCalibrationPopup(true)">Recalibrate</button>
       </div>
+    </div>
+    <!-- Tracking Overlay -->
+    <div v-if="showTrackingOverlay" class="modal-overlay" @click="stopTracking">
+      <button class="close-button" @click.stop="closeTrackingOverlay">×</button>
+      <h2>Tracking Target</h2>
+      <p>Angular Distance: {{ angularDistance.toFixed(2) }} degrees</p>
     </div>
   </div>
 </template>
@@ -94,6 +105,39 @@ button {
   width: 100%;
   margin-top: 10px;
 }
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;  /* Use viewport width */
+  height: 100vh; /* Use viewport height */
+  background-color: rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+  text-align: center;
+  z-index: 1000;
+  color: #aaa; /* Sets all text color to grey */
+}
+
+.modal-overlay h2, .modal-overlay p {
+  color: inherit; /* Ensures all headings and paragraphs inherit the grey color */
+}
+
+.close-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: none;
+  background: none;
+  font-size: 30px;
+  color: #fff; /* White color for contrast against the dark overlay */
+  cursor: pointer;
+}
+
 </style>
 
 <script>
@@ -130,7 +174,7 @@ export default {
       isBeeping: false,
       raInput: '',
       decInput: '',
-
+      showCalibrationPopup: false, // New property for managing popup visibility
 
     };
   },
@@ -232,7 +276,9 @@ export default {
       const eqj_vec = RotateVector(Rotation_HOR_EQJ(time, observer), hor_vec);
       return EquatorFromVector(eqj_vec);
     },
-    async calibrateGyro() {
+    async performCalibration() {
+
+
       // Ensure the current positions and local sidereal time are correct
       const jd_ut = this.dateToJulianDate(new Date(this.localTime));
       const ra = parseFloat(this.raInput) * Math.PI / 12; // hours to radians
@@ -355,6 +401,48 @@ export default {
         // this.audioContext = null;
       }
     },
+    openCalibrationPopup(recalibrate = false) {
+      this.showCalibrationPopup = true;
+      // Ensure calibration only initiates on user action, clear previous results if recalibrating
+      if (recalibrate) {
+        this.calibrationResult = null;
+      }
+    },
+    closeModal() {
+      this.showCalibrationPopup = false;
+    },
+    initiateCalibration() {
+      // Start calibration only if there are no results yet
+      if (!this.calibrationResult) {
+        this.performCalibration();
+      }
+    },
+
+    startTracking() {
+      this.calculateAngularDistance(); // Perform an initial calculation
+      this.angularDistanceIntervalId = setInterval(() => {
+        this.calculateAngularDistance();
+        if (this.angularDistance < 0.5) {
+          this.startBeep();
+        } else {
+          this.stopBeep();
+        }
+      }, 1000); // Update tracking data every second
+      this.showTrackingOverlay = true;
+    },
+    
+    stopTracking() {
+      clearInterval(this.angularDistanceIntervalId);
+      this.angularDistanceIntervalId = null;
+      this.stopBeep();
+      this.showTrackingOverlay = false;
+    },
+
+    closeTrackingOverlay() {
+      this.showTrackingOverlay = false;
+      this.stopTracking(); // Ensure tracking is stopped when overlay is closed
+    },
+
 
   },
   created() {
@@ -374,3 +462,5 @@ export default {
   },
 };
 </script>
+
+
