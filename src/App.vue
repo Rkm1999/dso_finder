@@ -1,54 +1,77 @@
-<!-- app.vue -->
 <template>
-  <div id="app">
-    <div class="row">
-      <div class="column">
-        <h2>GPS Coordinate</h2>
-        <div>{{ latitude.toFixed(2) }}, {{ longitude.toFixed(2) }}</div>
+  <div id="app" :class="theme">
+    <div class="content-container">
+      <!-- Existing content -->
+      <div class="row">
+        <div class="column">
+          <h2>GPS Coordinate</h2>
+          <div>{{ latitude.toFixed(2) }}, {{ longitude.toFixed(2) }}</div>
+        </div>
+        <div class="column">
+          <h2>Local Time</h2>
+          <div>{{ localTime }}</div>
+        </div>
       </div>
-      <div class="column">
-        <h2>Local Time</h2>
-        <div>{{ localTime }}</div>
-      </div>
-    </div>
 
-    <div class="row">
-      <div class="column">
-        <h2>Altitude and Azimuth</h2>
-        <div>Alt: {{ altitude.toFixed(2) }}</div>
-        <div>Az: {{ azimuth.toFixed(2) }}</div>
+      <div class="row">
+        <div class="column">
+          <h2>Altitude and Azimuth</h2>
+          <div>Alt: {{ altitude.toFixed(2) }}</div>
+          <div>Az: {{ azimuth.toFixed(2) }}</div>
+        </div>
+        <div class="column">
+          <h2>RA/DEC Coordinates</h2>
+          <div v-if="results">
+            <div>RA: {{ results.j2000_ra.toFixed(2) }}</div>
+            <div>DEC: {{ results.j2000_dec.toFixed(2) }}</div>
+          </div>
+        </div>
       </div>
-      <div class="column">
-        <h2>RA/DEC Coordinates</h2>
-        <div v-if="results">
-          <div>RA: {{ results.j2000_ra.toFixed(2) }}</div>
-          <div>DEC: {{ results.j2000_dec.toFixed(2) }}</div>
+
+      <div class="row">
+        <div class="column full-width">
+          <button class="styled-button" @click="requestGPSPermission">Request GPS Permission</button>
+          <button class="styled-button" @click="requestOrientationPermission">Request Gyro Permission</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="column full-width">
+          <h2>RA/DEC Input</h2>
+          <input class="styled-input" v-model="raInput" placeholder="RA (hours)">
+          <input class="styled-input" v-model="decInput" placeholder="DEC (degrees)">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="column full-width">
+          <h2>Calibration and Tracking</h2>
+          <button class="styled-button" @click="openCalibrationPopup">Calibrate Gyro</button>
+          <button class="styled-button" @click="startTracking">Track Target</button>
         </div>
       </div>
     </div>
 
-    <div class="row">
-      <div class="column full-width">
-        <button @click="requestGPSPermission">Request GPS Permission</button>
-        <button @click="requestOrientationPermission">Request Gyro Permission</button>
-      </div>
+    <div class="settings-button-container">
+      <button class="styled-button" @click="openSettingsPopup">Settings</button>
     </div>
 
-
-    <div class="row">
-      <div class="column full-width">
-        <h2>RA/DEC Input</h2>
-        <input v-model="raInput" placeholder="RA (hours)">
-        <input v-model="decInput" placeholder="DEC (degrees)">
-      </div>
-    </div>
-
-
-    <div class="row">
-      <div class="column full-width">
-        <h2>Calibration and Tracking</h2>
-        <button @click="openCalibrationPopup">Calibrate Gyro</button>
-        <button @click="startTracking">Track Target</button>
+    <!-- Settings Modal Popup -->
+    <div v-if="showSettingsPopup" class="modal-overlay" @click="closeSettingsPopup">
+      <div :class="['modal-content', darkMode ? 'dark' : '']" @click.stop>
+        <button class="close-button" @click="closeSettingsPopup">×</button>
+        <h2>Settings</h2>
+        <div>
+          <label for="threshold">Beep Distance Threshold (degrees):</label>
+          <input id="threshold" v-model.number="beepThreshold" type="number" class="styled-input">
+        </div>
+        <div>
+          <label for="themeToggle">Theme:</label>
+          <input id="themeToggle" type="checkbox" v-model="darkMode" @change="toggleTheme">
+          <label for="themeToggle">{{ darkMode ? 'Dark Mode' : 'Light Mode' }}</label>
+        </div>
+        <button class="styled-button" @click="saveSettings">Save Settings</button>
+        <button class="styled-button" @click="clearCache">Clear Cache</button>
       </div>
     </div>
 
@@ -66,7 +89,7 @@
           AZ Correction: {{ calibrationResult.azimuthCorrection.toFixed(2) }}<br>
           ALT Correction: {{ calibrationResult.altitudeCorrection.toFixed(2) }}
         </p>
-        <button @click.stop="openCalibrationPopup(true)">Recalibrate</button>
+        <button class="styled-button" @click.stop="openCalibrationPopup(true)">Recalibrate</button>
       </div>
     </div>
     <!-- Tracking Overlay -->
@@ -78,55 +101,107 @@
   </div>
 </template>
 
-<style scoped>
+<style>
+/* Global styles */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* Optional: prevent scrolling */
+}
+
+/* Scoped styles */
 #app {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%; /* Ensure the #app element occupies the full height */
+  overflow-y: auto; /* Enable scrolling if content overflows */
 }
+.content-container {
+  flex: 1; /* Allows it to take remaining space */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around; /* Distributes space evenly */
+}
+.settings-button-container {
+  margin-top: auto; /* Push to the bottom */
+  padding: 10px; /* Optional padding */
+}
+
 .row {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 0px;
 }
 .column {
   flex: 1;
-  padding: 10px;
+  padding: 5px;
   box-sizing: border-box;
 }
 .full-width {
   flex: 100%;
 }
-input {
-  margin-bottom: 10px;
+input.styled-input {
+  margin-bottom: 5px;
   width: 90%;
+  padding: 5px;
+  border: 2px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.1);
 }
-button {
+input.styled-input.dark {
+  background-color: #333;
+  color: #ff0000;
+  border: 2px solid #ff0000;
+}
+button.styled-button {
   width: 100%;
-  margin-top: 10px;
+  margin-top: 5px;
+  padding: 5px;
+  border: none;
+  border-radius: 5px;
+  background-color: #007BFF;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s ease;
+}
+button.styled-button:hover {
+  background-color: #0056b3;
+}
+button.styled-button.dark {
+  background-color: #4CAF50;
+  color: red; /* Change text color to red in dark mode */
+}
+button.styled-button.dark:hover {
+  background-color: #45a049;
 }
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;  /* Use viewport width */
-  height: 100vh; /* Use viewport height */
+  width: 100vw;
+  height: 100vh;
   background-color: rgba(0, 0, 0, 0.85);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 20px;
+  padding: 10px;
   box-sizing: border-box;
   text-align: center;
   z-index: 1000;
-  color: #aaa; /* Sets all text color to grey */
+  color: #aaa;
 }
-
-.modal-overlay h2, .modal-overlay p {
-  color: inherit; /* Ensures all headings and paragraphs inherit the grey color */
-}
-
 .close-button {
   position: absolute;
   top: 10px;
@@ -134,10 +209,63 @@ button {
   border: none;
   background: none;
   font-size: 30px;
-  color: #fff; /* White color for contrast against the dark overlay */
+  color: #fff;
   cursor: pointer;
 }
 
+.modal-overlay h2, .modal-overlay p {
+  color: inherit;
+}
+.modal-content {
+  background-color: #fff;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  color: #000;
+  width: 30vh;  /* Set a fixed width */
+  height: 50vh; /* Set a max height to prevent overflow */
+  overflow-y: auto; /* Enable vertical scrolling if content overflows */
+}
+
+.modal-content.dark {
+  background-color: #333;
+  color: #ff0000;
+  width: 30vh;  /* Set a fixed width */
+  height: 50vh; /* Set a max height to prevent overflow */
+  overflow-y: auto; /* Enable vertical scrolling if content overflows */
+  padding: 10px;
+
+}
+
+.modal-content label {
+  display: block;
+  margin-top: 5px;
+  margin-bottom: 2px;
+}
+
+.dark {
+  background-color: #000;
+  color: #ff0000;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%; /* Ensure the .dark element occupies the full height */
+}
+
+.dark input.styled-input {
+  background-color: #333;
+  color: #ff0000;
+  border: 2px solid #ff0000;
+}
+
+.dark button.styled-button {
+  background-color: #4CAF50;
+  color: red; /* Change text color to red in dark mode */
+}
+
+.dark button.styled-button:hover {
+  background-color: #45a049;
+}
 </style>
 
 <script>
@@ -160,8 +288,8 @@ export default {
       longitude: '',
       rawAzimuth: 0,
       rawAltitude: 0,
-      azimuth: 0, // Initialize as a numeric value
-    altitude: 0, // Initialize as a numeric value
+      azimuth: 0,
+      altitude: 0,
       localTime: '',
       results: null,
       calibrationResult: null,
@@ -174,9 +302,19 @@ export default {
       isBeeping: false,
       raInput: '',
       decInput: '',
-      showCalibrationPopup: false, // New property for managing popup visibility
-
+      showCalibrationPopup: false,
+      showTrackingOverlay: false,
+      showSettingsPopup: false,
+      setting1: '',
+      setting2: '',
+      darkMode: false,
+      beepThreshold: 2, // Default threshold
     };
+  },
+  computed: {
+    theme() {
+      return this.darkMode ? 'dark' : 'light';
+    }
   },
   methods: {
     async requestGPSPermission() {
@@ -210,10 +348,9 @@ export default {
           .catch(console.error);
       } else {
         console.warn('Orientation permission is not explicitly required by this browser.');
-        this.getDeviceOrientation(); // Attempt to add event listener regardless
+        this.getDeviceOrientation();
       }
     },
-
     getDeviceOrientation() {
       window.addEventListener("deviceorientation", (event) => {
         if (event.absolute) {
@@ -221,11 +358,10 @@ export default {
         } else {
           console.log("Orientation not absolute.");
         }
-
-        let rawAltitude = event.beta;  // Raw X axis
-        let rawAzimuth = event.alpha;  // Raw Z axis
+        let rawAltitude = event.beta;
+        let rawAzimuth = event.alpha;
         if (rawAzimuth !== null) {
-          rawAzimuth = 360 - rawAzimuth; // Invert and normalize raw azimuth to 0-360
+          rawAzimuth = 360 - rawAzimuth;
           this.rawAltitude = rawAltitude;
           this.rawAzimuth = rawAzimuth;
           this.applyCalibration(rawAltitude, rawAzimuth);
@@ -233,23 +369,16 @@ export default {
           console.log("Orientation data not available.");
         }
       }, true);
-
       console.log("Listener for device orientation added.");
     },
-
     applyCalibration(rawAltitude, rawAzimuth) {
       let adjustedAltitude = rawAltitude + this.altitudeOffset;
-
-      // Normalize the azimuth with the offset applied and wrap it properly
       let calibratedAzimuth = (rawAzimuth + this.azimuthOffset + 360) % 360;
-
-      // Check if adjustment crosses the typical -90/90 boundary for altitude
       if (adjustedAltitude > 90) {
-        adjustedAltitude = 180 - adjustedAltitude;  // Correct inversion above 90
+        adjustedAltitude = 180 - adjustedAltitude;
       } else if (adjustedAltitude < -90) {
-        adjustedAltitude = -180 - adjustedAltitude;  // Correct inversion below -90
+        adjustedAltitude = -180 - adjustedAltitude;
       }
-
       this.altitude = adjustedAltitude;
       this.azimuth = calibratedAzimuth;
       console.log(`Calibrated Azimuth: ${calibratedAzimuth}, Calibrated Altitude: ${adjustedAltitude}`);
@@ -259,11 +388,8 @@ export default {
       this.getCurrentPosition().then(() => {
         const observer = new Observer(this.latitude, this.longitude, 0);
         let time = MakeTime(new Date(this.localTime));
-
-        // Use directly calibrated data
         const correctedAzimuth = this.azimuth;
         const correctedAltitude = this.altitude;
-
         if (time) {
           const result = this.solveCoordinates(observer, time, correctedAzimuth, correctedAltitude);
           this.results = { j2000_ra: result.ra, j2000_dec: result.dec };
@@ -277,25 +403,14 @@ export default {
       return EquatorFromVector(eqj_vec);
     },
     async performCalibration() {
-
-
-      // Ensure the current positions and local sidereal time are correct
       const jd_ut = this.dateToJulianDate(new Date(this.localTime));
-      const ra = parseFloat(this.raInput) * Math.PI / 12; // hours to radians
-      const dec = parseFloat(this.decInput) * Math.PI / 180; // degrees to radians
-
-      // Get expected azimuth and altitude from astronomical calculations
+      const ra = parseFloat(this.raInput) * Math.PI / 12;
+      const dec = parseFloat(this.decInput) * Math.PI / 180;
       const [expectedAzimuth, expectedAltitude] = this.raDecToAltAz(ra, dec, this.latitude * Math.PI / 180, this.longitude * Math.PI / 180, jd_ut);
-
-      // Calculate corrections based on raw sensor readings
       const azimuthCorrection = (expectedAzimuth * 180 / Math.PI - this.rawAzimuth + 360) % 360;
       const altitudeCorrection = expectedAltitude * 180 / Math.PI - this.rawAltitude;
-
-      // Apply these corrections to the stored offsets
       this.azimuthOffset = azimuthCorrection;
       this.altitudeOffset = altitudeCorrection;
-
-      // Update calibration results
       this.calibrationResult = {
         expectedAzimuth: expectedAzimuth * 180 / Math.PI,
         expectedAltitude: expectedAltitude * 180 / Math.PI,
@@ -318,7 +433,7 @@ export default {
     },
     greenwichMeanSiderealTime(jd) {
       const t = (jd - 2451545.0) / 36525.0;
-      let gmst = this.earthRotationAngle(jd) + (0.014506 + 4612.156534 * t + 1.3915817 * t * t - 0.00000044 * t * t * t - 0.000029956 * t * t * t * t - 0.0000000368 * t * t * t * t * t) * Math.PI / 648000; // degrees to radians
+      let gmst = this.earthRotationAngle(jd) + (0.014506 + 4612.156534 * t + 1.3915817 * t * t - 0.00000044 * t * t * t - 0.000029956 * t * t * t * t - 0.0000000368 * t * t * t * t * t) * Math.PI / 648000;
       return (gmst % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
     },
     earthRotationAngle(jd) {
@@ -328,15 +443,13 @@ export default {
     },
     startCalculatingDistance() {
       if (this.angularDistanceIntervalId !== null) {
-        // If there's already an interval running, clear it first
         clearInterval(this.angularDistanceIntervalId);
       }
-      this.calculateAngularDistance(); // Calculate initially before setting the interval
+      this.calculateAngularDistance();
       this.angularDistanceIntervalId = setInterval(() => {
         this.calculateAngularDistance();
-      }, 50); // Recalculate every second
+      }, 50);
     },
-
     stopCalculatingDistance() {
       if (this.angularDistanceIntervalId !== null) {
         clearInterval(this.angularDistanceIntervalId);
@@ -347,28 +460,16 @@ export default {
       const jd_ut = this.dateToJulianDate(new Date(this.localTime));
       const observerLatRadians = this.latitude * Math.PI / 180;
       const observerLonRadians = this.longitude * Math.PI / 180;
-
-      // Convert target RA/Dec from hours and degrees to radians
       const targetRaRadians = parseFloat(this.raInput) * Math.PI / 12;
       const targetDecRadians = parseFloat(this.decInput) * Math.PI / 180;
-
-      // Get Alt/Az for the target
       const [targetAzimuth, targetAltitude] = this.raDecToAltAz(targetRaRadians, targetDecRadians, observerLatRadians, observerLonRadians, jd_ut);
-      
-      // Convert pointing Alt/Az to radians
       const pointingAzimuthRadians = this.azimuth * Math.PI / 180;
       const pointingAltitudeRadians = this.altitude * Math.PI / 180;
-
-      // Convert Alt/Az to vectors
       const pointingVector = VectorFromHorizon(new Spherical(pointingAltitudeRadians, pointingAzimuthRadians, 1), new Date(this.localTime), null);
       const targetVector = VectorFromHorizon(new Spherical(targetAltitude, targetAzimuth, 1), new Date(this.localTime), null);
-
-      // Calculate angular distance between the two vectors
       let vectorDistance = AngleBetween(pointingVector, targetVector) * 180 / Math.PI;
-
-      // Correcting distance to not exceed 180 degrees
       this.angularDistance = vectorDistance > 180 ? 360 - vectorDistance : vectorDistance;
-      if (this.angularDistance < 0.5) {
+      if (this.angularDistance < this.beepThreshold) {
         this.startBeep();
       } else {
         this.stopBeep();
@@ -380,15 +481,13 @@ export default {
         if (!this.audioContext) {
           this.audioContext = new AudioContext();
         }
-        // Always create a new oscillator when starting the beep
         this.oscillator = this.audioContext.createOscillator();
-        this.oscillator.type = 'sine'; // Sine wave — other types are 'square', 'sawtooth', 'triangle'
-        this.oscillator.frequency.setValueAtTime(440, this.audioContext.currentTime); // Frequency in hertz
+        this.oscillator.type = 'sine';
+        this.oscillator.frequency.setValueAtTime(440, this.audioContext.currentTime);
         this.oscillator.connect(this.audioContext.destination);
         this.oscillator.start();
       }
     },
-
     stopBeep() {
       if (this.isBeeping) {
         this.isBeeping = false;
@@ -396,14 +495,10 @@ export default {
           this.oscillator.stop();
           this.oscillator.disconnect();
         }
-        // Optionally close the audio context if not planning to use it soon again
-        // this.audioContext.close();
-        // this.audioContext = null;
       }
     },
     openCalibrationPopup(recalibrate = false) {
       this.showCalibrationPopup = true;
-      // Ensure calibration only initiates on user action, clear previous results if recalibrating
       if (recalibrate) {
         this.calibrationResult = null;
       }
@@ -412,35 +507,59 @@ export default {
       this.showCalibrationPopup = false;
     },
     initiateCalibration() {
-      // Start calibration only if there are no results yet
       if (!this.calibrationResult) {
         this.performCalibration();
       }
     },
-
     startTracking() {
-      this.calculateAngularDistance(); // Perform an initial calculation
+      this.calculateAngularDistance();
       this.angularDistanceIntervalId = setInterval(() => {
         this.calculateAngularDistance();
-      }, 50); // Update tracking data every second
+      }, 50);
       this.showTrackingOverlay = true;
     },
-    
     stopTracking() {
       clearInterval(this.angularDistanceIntervalId);
       this.angularDistanceIntervalId = null;
       this.stopBeep();
       this.showTrackingOverlay = false;
     },
-
     closeTrackingOverlay() {
       this.showTrackingOverlay = false;
-      this.stopTracking(); // Ensure tracking is stopped when overlay is closed
+      this.stopTracking();
     },
-
-
+    openSettingsPopup() {
+      this.showSettingsPopup = true;
+    },
+    closeSettingsPopup() {
+      this.showSettingsPopup = false;
+    },
+    saveSettings() {
+      console.log("Settings saved:", this.beepThreshold, this.darkMode);
+      localStorage.setItem('beepThreshold', this.beepThreshold);
+      localStorage.setItem('darkMode', this.darkMode);
+      this.closeSettingsPopup();
+    },
+    loadSettings() {
+      this.beepThreshold = parseFloat(localStorage.getItem('beepThreshold')) || 2;
+      this.darkMode = localStorage.getItem('darkMode') === 'true';
+    },
+    toggleTheme() {
+      this.theme = this.darkMode ? 'dark' : 'light';
+    },
+    clearCache() {
+      if ('caches' in window) {
+        caches.keys().then(function (names) {
+          for (let name of names) {
+            caches.delete(name);
+          }
+        });
+      }
+      window.location.reload(true); // Force reload to get the latest version
+    },
   },
   created() {
+    this.loadSettings();
     this.getCurrentPosition();
     this.getDeviceOrientation();
     this.updateLocalTime();
@@ -453,9 +572,6 @@ export default {
     clearInterval(this.intervalId);
     window.removeEventListener("deviceorientation", this.handleOrientation, true);
     this.stopCalculatingDistance();
-
   },
 };
 </script>
-
-
