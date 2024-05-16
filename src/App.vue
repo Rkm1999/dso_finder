@@ -1,272 +1,61 @@
+<!-- App.vue -->
 <template>
-  <div id="app" :class="theme">
+  <div id="app" :class="[theme]">
     <div class="content-container">
-      <!-- Existing content -->
       <div class="row">
-        <div class="column">
-          <h2>GPS Coordinate</h2>
-          <div>{{ latitude.toFixed(2) }}, {{ longitude.toFixed(2) }}</div>
-        </div>
-        <div class="column">
-          <h2>Local Time</h2>
-          <div>{{ localTime }}</div>
-        </div>
+        <GPSDisplay :latitude="latitude" :longitude="longitude" />
+        <LocalTimeDisplay :local-time="localTime" />
       </div>
 
       <div class="row">
-        <div class="column">
-          <h2>Altitude and Azimuth</h2>
-          <div>Alt: {{ altitude.toFixed(2) }}</div>
-          <div>Az: {{ azimuth.toFixed(2) }}</div>
-        </div>
-        <div class="column">
-          <h2>RA/DEC Coordinates</h2>
-          <div v-if="results">
-            <div>RA: {{ results.j2000_ra.toFixed(2) }}</div>
-            <div>DEC: {{ results.j2000_dec.toFixed(2) }}</div>
-          </div>
-        </div>
+        <AltAzDisplay :altitude="altitude" :azimuth="azimuth" />
+        <RADecDisplay :results="results" />
       </div>
 
-      <div class="row">
-        <div class="column full-width">
-          <button class="styled-button" @click="requestGPSPermission">Request GPS Permission</button>
-          <button class="styled-button" @click="requestOrientationPermission">Request Gyro Permission</button>
-        </div>
-      </div>
+      <PermissionButtons
+        @gps-permission-granted="getCurrentPosition"
+        @gyro-permission-granted="getDeviceOrientation"
+        :dark-mode="darkMode"
+      />
 
       <div class="row">
-        <div class="column full-width">
-          <h2>RA/DEC Input</h2>
-          <input class="styled-input" v-model="raInput" placeholder="RA (hours)">
-          <input class="styled-input" v-model="decInput" placeholder="DEC (degrees)">
-        </div>
+        <RADECInput v-model:ra-input="raInput" v-model:dec-input="decInput" :dark-mode="darkMode" />
       </div>
 
-      <div class="row">
-        <div class="column full-width">
-          <h2>Calibration and Tracking</h2>
-          <button class="styled-button" @click="openCalibrationPopup">Calibrate Gyro</button>
-          <button class="styled-button" @click="startTracking">Track Target</button>
-        </div>
-      </div>
+      <CalibrationTracking :dark-mode="darkMode" @openCalibrationPopup="openCalibrationPopup" @startTracking="startTracking" />
     </div>
 
     <div class="settings-button-container">
-      <button class="styled-button" @click="openSettingsPopup">Settings</button>
+      <button class="styled-button" :class="{ dark: darkMode }" @click="openSettingsPopup">Settings</button>
     </div>
 
-    <!-- Settings Modal Popup -->
-    <div v-if="showSettingsPopup" class="modal-overlay" @click="closeSettingsPopup">
-      <div :class="['modal-content', darkMode ? 'dark' : '']" @click.stop>
-        <button class="close-button" @click="closeSettingsPopup">×</button>
-        <h2>Settings</h2>
-        <div>
-          <label for="threshold">Beep Distance Threshold (degrees):</label>
-          <input id="threshold" v-model.number="beepThreshold" type="number" class="styled-input">
-        </div>
-        <div>
-          <label for="themeToggle">Theme:</label>
-          <input id="themeToggle" type="checkbox" v-model="darkMode" @change="toggleTheme">
-          <label for="themeToggle">{{ darkMode ? 'Dark Mode' : 'Light Mode' }}</label>
-        </div>
-        <button class="styled-button" @click="saveSettings">Save Settings</button>
-        <button class="styled-button" @click="clearCache">Clear Cache</button>
-      </div>
-    </div>
+    <SettingsModal
+      v-if="showSettingsPopup"
+      :dark-mode="darkMode"
+      :beep-threshold="beepThreshold"
+      @close="closeSettingsPopup"
+      @save="saveSettings"
+      @clear="clearCache"
+      @toggle-theme="toggleTheme"
+    />
 
-    <!-- Modal Popup for Calibration -->
-    <div v-if="showCalibrationPopup" class="modal-overlay" @click="initiateCalibration">
-      <button class="close-button" @click.stop="closeModal">×</button>
-      <h2 v-if="!calibrationResult">Tap anywhere to calibrate the gyro.</h2>
-      <div v-if="calibrationResult">
-        <h2>Calibration Results</h2>
-        <p>
-          Expected AZ: {{ calibrationResult.expectedAzimuth.toFixed(2) }}<br>
-          Expected ALT: {{ calibrationResult.expectedAltitude.toFixed(2) }}<br>
-          Actual AZ: {{ calibrationResult.actualAzimuth.toFixed(2) }}<br>
-          Actual ALT: {{ calibrationResult.actualAltitude.toFixed(2) }}<br>
-          AZ Correction: {{ calibrationResult.azimuthCorrection.toFixed(2) }}<br>
-          ALT Correction: {{ calibrationResult.altitudeCorrection.toFixed(2) }}
-        </p>
-        <button class="styled-button" @click.stop="openCalibrationPopup(true)">Recalibrate</button>
-      </div>
-    </div>
-    <!-- Tracking Overlay -->
-    <div v-if="showTrackingOverlay" class="modal-overlay" @click="stopTracking">
-      <button class="close-button" @click.stop="closeTrackingOverlay">×</button>
-      <h2>Tracking Target</h2>
-      <p>Angular Distance: {{ angularDistance.toFixed(2) }} degrees</p>
-    </div>
+    <CalibrationModal
+      v-if="showCalibrationPopup"
+      :calibration-result="calibrationResult"
+      :dark-mode="darkMode"
+      @close="closeModal"
+      @initiate="initiateCalibration"
+      @recalibrate="resetCalibration"
+    />
+
+    <TrackingOverlay
+      v-if="showTrackingOverlay"
+      :angular-distance="angularDistance"
+      :dark-mode="darkMode"
+      @close="closeTrackingOverlay"
+    />
   </div>
 </template>
-
-<style>
-/* Global styles */
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden; /* Optional: prevent scrolling */
-}
-
-/* Scoped styles */
-#app {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  font-family: Arial, sans-serif;
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%; /* Ensure the #app element occupies the full height */
-  overflow-y: auto; /* Enable scrolling if content overflows */
-}
-.content-container {
-  flex: 1; /* Allows it to take remaining space */
-  display: flex;
-  flex-direction: column;
-  justify-content: space-around; /* Distributes space evenly */
-}
-.settings-button-container {
-  margin-top: auto; /* Push to the bottom */
-  padding: 10px; /* Optional padding */
-}
-
-.row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 0px;
-}
-.column {
-  flex: 1;
-  padding: 5px;
-  box-sizing: border-box;
-}
-.full-width {
-  flex: 100%;
-}
-input.styled-input {
-  margin-bottom: 5px;
-  width: 90%;
-  padding: 5px;
-  border: 2px solid #ccc;
-  border-radius: 5px;
-  font-size: 16px;
-  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.1);
-}
-input.styled-input.dark {
-  background-color: #333;
-  color: #ff0000;
-  border: 2px solid #ff0000;
-}
-button.styled-button {
-  width: 100%;
-  margin-top: 5px;
-  padding: 5px;
-  border: none;
-  border-radius: 5px;
-  background-color: #007BFF;
-  color: white;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.1);
-  transition: background-color 0.3s ease;
-}
-button.styled-button:hover {
-  background-color: #0056b3;
-}
-button.styled-button.dark {
-  background-color: #4CAF50;
-  color: red; /* Change text color to red in dark mode */
-}
-button.styled-button.dark:hover {
-  background-color: #45a049;
-}
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(0, 0, 0, 0.85);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  padding: 10px;
-  box-sizing: border-box;
-  text-align: center;
-  z-index: 1000;
-  color: #aaa;
-}
-.close-button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  border: none;
-  background: none;
-  font-size: 30px;
-  color: #fff;
-  cursor: pointer;
-}
-
-.modal-overlay h2, .modal-overlay p {
-  color: inherit;
-}
-.modal-content {
-  background-color: #fff;
-  padding: 10px;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  color: #000;
-  width: 30vh;  /* Set a fixed width */
-  height: 50vh; /* Set a max height to prevent overflow */
-  overflow-y: auto; /* Enable vertical scrolling if content overflows */
-}
-
-.modal-content.dark {
-  background-color: #333;
-  color: #ff0000;
-  width: 30vh;  /* Set a fixed width */
-  height: 50vh; /* Set a max height to prevent overflow */
-  overflow-y: auto; /* Enable vertical scrolling if content overflows */
-  padding: 10px;
-
-}
-
-.modal-content label {
-  display: block;
-  margin-top: 5px;
-  margin-bottom: 2px;
-}
-
-.dark {
-  background-color: #000;
-  color: #ff0000;
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%; /* Ensure the .dark element occupies the full height */
-}
-
-.dark input.styled-input {
-  background-color: #333;
-  color: #ff0000;
-  border: 2px solid #ff0000;
-}
-
-.dark button.styled-button {
-  background-color: #4CAF50;
-  color: red; /* Change text color to red in dark mode */
-}
-
-.dark button.styled-button:hover {
-  background-color: #45a049;
-}
-</style>
 
 <script>
 import { Geolocation } from '@capacitor/geolocation';
@@ -280,8 +69,30 @@ import {
   EquatorFromVector,
   AngleBetween
 } from 'astronomy-engine';
+import GPSDisplay from './components/GPSDisplay.vue';
+import LocalTimeDisplay from './components/LocalTimeDisplay.vue';
+import AltAzDisplay from './components/AltAzDisplay.vue';
+import RADecDisplay from './components/RADecDisplay.vue';
+import RADECInput from './components/RADECInput.vue';
+import PermissionButtons from './components/PermissionButtons.vue';
+import CalibrationTracking from './components/CalibrationTracking.vue';
+import SettingsModal from './components/SettingsModal.vue';
+import CalibrationModal from './components/CalibrationModal.vue';
+import TrackingOverlay from './components/TrackingOverlay.vue';
 
 export default {
+  components: {
+    GPSDisplay,
+    LocalTimeDisplay,
+    AltAzDisplay,
+    RADecDisplay,
+    RADECInput,
+    PermissionButtons,
+    CalibrationTracking,
+    SettingsModal,
+    CalibrationModal,
+    TrackingOverlay,
+  },
   data() {
     return {
       latitude: '',
@@ -308,7 +119,7 @@ export default {
       setting1: '',
       setting2: '',
       darkMode: false,
-      beepThreshold: 2, // Default threshold
+      beepThreshold: 2,
     };
   },
   computed: {
@@ -317,12 +128,6 @@ export default {
     }
   },
   methods: {
-    async requestGPSPermission() {
-      const permission = await navigator.permissions.query({ name: 'geolocation' });
-      if (permission.state === 'granted' || permission.state === 'prompt') {
-        this.getCurrentPosition();
-      }
-    },
     async getCurrentPosition() {
       try {
         const coordinates = await Geolocation.getCurrentPosition();
@@ -335,41 +140,27 @@ export default {
     updateLocalTime() {
       this.localTime = new Date().toLocaleString('en-US', { hour12: false }).replace(',', '');
     },
-    requestOrientationPermission() {
-      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission()
-          .then(permissionState => {
-            if (permissionState === 'granted') {
-              this.getDeviceOrientation();
-            } else {
-              console.error('Orientation permission denied');
-            }
-          })
-          .catch(console.error);
-      } else {
-        console.warn('Orientation permission is not explicitly required by this browser.');
-        this.getDeviceOrientation();
-      }
-    },
     getDeviceOrientation() {
-      window.addEventListener("deviceorientation", (event) => {
-        if (event.absolute) {
-          console.log("Got absolute orientation.");
-        } else {
-          console.log("Orientation not absolute.");
-        }
-        let rawAltitude = event.beta;
-        let rawAzimuth = event.alpha;
-        if (rawAzimuth !== null) {
-          rawAzimuth = 360 - rawAzimuth;
-          this.rawAltitude = rawAltitude;
-          this.rawAzimuth = rawAzimuth;
-          this.applyCalibration(rawAltitude, rawAzimuth);
-        } else {
-          console.log("Orientation data not available.");
-        }
-      }, true);
+      this.handleOrientation = this.handleOrientation.bind(this);
+      window.addEventListener("deviceorientation", this.handleOrientation, true);
       console.log("Listener for device orientation added.");
+    },
+    handleOrientation(event) {
+      if (event.absolute) {
+        console.log("Got absolute orientation.");
+      } else {
+        console.log("Orientation not absolute.");
+      }
+      let rawAltitude = event.beta;
+      let rawAzimuth = event.alpha;
+      if (rawAzimuth !== null) {
+        rawAzimuth = 360 - rawAzimuth;
+        this.rawAltitude = rawAltitude;
+        this.rawAzimuth = rawAzimuth;
+        this.applyCalibration(rawAltitude, rawAzimuth);
+      } else {
+        console.log("Orientation data not available.");
+      }
     },
     applyCalibration(rawAltitude, rawAzimuth) {
       let adjustedAltitude = rawAltitude + this.altitudeOffset;
@@ -403,22 +194,33 @@ export default {
       return EquatorFromVector(eqj_vec);
     },
     async performCalibration() {
-      const jd_ut = this.dateToJulianDate(new Date(this.localTime));
-      const ra = parseFloat(this.raInput) * Math.PI / 12;
-      const dec = parseFloat(this.decInput) * Math.PI / 180;
-      const [expectedAzimuth, expectedAltitude] = this.raDecToAltAz(ra, dec, this.latitude * Math.PI / 180, this.longitude * Math.PI / 180, jd_ut);
-      const azimuthCorrection = (expectedAzimuth * 180 / Math.PI - this.rawAzimuth + 360) % 360;
-      const altitudeCorrection = expectedAltitude * 180 / Math.PI - this.rawAltitude;
-      this.azimuthOffset = azimuthCorrection;
-      this.altitudeOffset = altitudeCorrection;
-      this.calibrationResult = {
-        expectedAzimuth: expectedAzimuth * 180 / Math.PI,
-        expectedAltitude: expectedAltitude * 180 / Math.PI,
-        actualAzimuth: this.rawAzimuth,
-        actualAltitude: this.rawAltitude,
-        azimuthCorrection: azimuthCorrection,
-        altitudeCorrection: altitudeCorrection
-      };
+      if (!this.isCalibrating) {
+        this.isCalibrating = true;
+        const jd_ut = this.dateToJulianDate(new Date(this.localTime));
+        const ra = parseFloat(this.raInput) * Math.PI / 12;
+        const dec = parseFloat(this.decInput) * Math.PI / 180;
+        const [expectedAzimuth, expectedAltitude] = this.raDecToAltAz(ra, dec, this.latitude * Math.PI / 180, this.longitude * Math.PI / 180, jd_ut);
+        const azimuthCorrection = (expectedAzimuth * 180 / Math.PI - this.rawAzimuth + 360) % 360;
+        const altitudeCorrection = expectedAltitude * 180 / Math.PI - this.rawAltitude;
+        this.azimuthOffset = azimuthCorrection;
+        this.altitudeOffset = altitudeCorrection;
+        this.calibrationResult = {
+          expectedAzimuth: expectedAzimuth * 180 / Math.PI,
+          expectedAltitude: expectedAltitude * 180 / Math.PI,
+          actualAzimuth: this.rawAzimuth,
+          actualAltitude: this.rawAltitude,
+          azimuthCorrection: azimuthCorrection,
+          altitudeCorrection: altitudeCorrection
+        };
+        this.isCalibrating = false;
+      }
+    },
+    resetCalibration() {
+      this.calibrationResult = null;
+      this.showCalibrationPopup = false;
+      this.$nextTick(() => {
+        this.showCalibrationPopup = true;
+      });
     },
     dateToJulianDate(date) {
       return date.valueOf() / 86400000 + 2440587.5;
@@ -497,19 +299,15 @@ export default {
         }
       }
     },
-    openCalibrationPopup(recalibrate = false) {
+    openCalibrationPopup() {
+      this.calibrationResult = null;
       this.showCalibrationPopup = true;
-      if (recalibrate) {
-        this.calibrationResult = null;
-      }
     },
     closeModal() {
       this.showCalibrationPopup = false;
     },
     initiateCalibration() {
-      if (!this.calibrationResult) {
-        this.performCalibration();
-      }
+      this.performCalibration();
     },
     startTracking() {
       this.calculateAngularDistance();
@@ -534,18 +332,19 @@ export default {
     closeSettingsPopup() {
       this.showSettingsPopup = false;
     },
-    saveSettings() {
-      console.log("Settings saved:", this.beepThreshold, this.darkMode);
-      localStorage.setItem('beepThreshold', this.beepThreshold);
-      localStorage.setItem('darkMode', this.darkMode);
-      this.closeSettingsPopup();
+    saveSettings({ beepThreshold, darkMode }) {
+      this.beepThreshold = beepThreshold;
+      this.darkMode = darkMode;
+      localStorage.setItem('beepThreshold', beepThreshold);
+      localStorage.setItem('darkMode', darkMode);
     },
     loadSettings() {
       this.beepThreshold = parseFloat(localStorage.getItem('beepThreshold')) || 2;
       this.darkMode = localStorage.getItem('darkMode') === 'true';
     },
-    toggleTheme() {
-      this.theme = this.darkMode ? 'dark' : 'light';
+    toggleTheme(value) {
+      this.darkMode = value;
+      localStorage.setItem('darkMode', this.darkMode);
     },
     clearCache() {
       if ('caches' in window) {
@@ -575,3 +374,29 @@ export default {
   },
 };
 </script>
+
+<style lang="scss">
+@import './styles/main.scss';
+
+#app {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* Ensure the content is spaced between the top and bottom */
+  height: 100vh;
+}
+
+.content-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.settings-button-container {
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+}
+</style>
