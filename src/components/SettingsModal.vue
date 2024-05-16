@@ -95,13 +95,7 @@
   }
   
   .styled-input {
-    margin-bottom: 5px;
-    width: 90%;
-    padding: 5px;
-    border: 2px solid #ccc;
-    border-radius: 5px;
-    font-size: 16px;
-    box-shadow: 1px 1px 5px $shadow-color;
+    @include input-styles;
   
     &.dark {
       background-color: #333;

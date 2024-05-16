@@ -1,4 +1,5 @@
 // main.scss
+
 // Variables
 $primary-color: #007BFF;
 $primary-dark-color: #0056b3;
@@ -42,6 +43,22 @@ $transition-time: 0.3s;
   padding: 5px;
   box-sizing: border-box;
   text-align: center;
+}
+
+@mixin input-styles {
+  margin-bottom: 5px;
+  width: 90%;
+  padding: 5px;
+  border: 2px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+  box-shadow: 1px 1px 5px $shadow-color;
+
+  &.dark {
+    background-color: #333;
+    color: $dark-text;
+    border: 2px solid $dark-text;
+  }
 }
 
 // Global styles
@@ -128,19 +145,7 @@ html, body {
 }
 
 input {
-  margin-bottom: 5px;
-  width: 90%;
-  padding: 5px;
-  border: 2px solid #ccc;
-  border-radius: 5px;
-  font-size: 16px;
-  box-shadow: 1px 1px 5px $shadow-color;
-
-  &.dark {
-    background-color: #333;
-    color: $dark-text;
-    border: 2px solid $dark-text;
-  }
+  @include input-styles;
 }
 
 .modal-overlay {
@@ -155,6 +160,10 @@ input {
   align-items: center;
   z-index: 1000;
   color: #aaa;
+
+  &.dark {
+    color: $dark-text;
+  }
 }
 
 .modal-content {
