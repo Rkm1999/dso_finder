@@ -82,7 +82,8 @@
   
         this.planetList = planets.map(planet => {
           const equator = Equator(planet.body, time, observer, true, true);
-          const [azimuth, altitude] = this.raDecToAltAz(equator.ra, equator.dec, this.$root.latitude, this.$root.longitude, now);
+          // eslint-disable-next-line
+          const [_azimuth, altitude] = this.raDecToAltAz(equator.ra, equator.dec, this.$root.latitude, this.$root.longitude, now);
           return {
             name: planet.name,
             ra: equator.ra.toFixed(2),
@@ -97,7 +98,8 @@
         this.targetList.forEach(target => {
           const ra = parseFloat(target.ra) * (Math.PI / 12); // convert hours to radians
           const dec = parseFloat(target.dec) * (Math.PI / 180); // convert degrees to radians
-          const [azimuth, altitude] = this.raDecToAltAz(ra, dec, this.$root.latitude * Math.PI / 180, this.$root.longitude * Math.PI / 180, jd_ut);
+          // eslint-disable-next-line
+          const [_azimuth, altitude] = this.raDecToAltAz(ra, dec, this.$root.latitude * Math.PI / 180, this.$root.longitude * Math.PI / 180, jd_ut);
           target.altitude = altitude;
         });
       },
