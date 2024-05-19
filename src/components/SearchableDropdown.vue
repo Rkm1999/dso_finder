@@ -6,11 +6,16 @@
       </button>
       <div v-if="isOpen" class="dropdown-content" :class="{ dark: darkMode }">
         <input type="text" v-model="searchQuery" class="search-input" :class="{ dark: darkMode }" placeholder="Search" />
-        <select class="styled-select" size="5" :class="{ dark: darkMode }" v-model="selectedTarget" @change="updateFromList">
-          <option v-for="target in filteredTargetList" :key="target.name" :value="target">
+        <div class="options-list">
+          <div
+            v-for="target in filteredTargetList"
+            :key="target.name"
+            class="dropdown-item"
+            @click="selectTarget(target)"
+          >
             {{ target.name }} (RA: {{ target.ra }}, DEC: {{ target.dec }})
-          </option>
-        </select>
+          </div>
+        </div>
       </div>
     </div>
   </template>
@@ -55,11 +60,10 @@
           }
         }
       },
-      updateFromList() {
-        if (this.selectedTarget) {
-          this.$emit('update', this.selectedTarget);
-          this.isOpen = false; // Close the dropdown after selection
-        }
+      selectTarget(target) {
+        this.selectedTarget = target;
+        this.$emit('update', this.selectedTarget);
+        this.isOpen = false; // Close the dropdown after selection
       },
       updateCoordinates() {
         this.calculatePlanetsCoordinates();
@@ -83,14 +87,24 @@
         this.planetList = planets.map(planet => {
           const equator = Equator(planet.body, time, observer, true, true);
           // eslint-disable-next-line
-          const [_azimuth, altitude] = this.raDecToAltAz(equator.ra, equator.dec, this.$root.latitude, this.$root.longitude, now);
-          return {
-            name: planet.name,
-            ra: equator.ra.toFixed(2),
-            dec: equator.dec.toFixed(2),
-            altitude
-          };
-        });
+          const [_azimuth, altitude] = this.raDecToAltAz(
+            equator.ra * Math.PI / 12,
+            equator.dec * Math.PI / 180,
+            this.$root.latitude * Math.PI / 180,
+            this.$root.longitude * Math.PI / 180,
+            this.dateToJulianDate(now)
+          );
+  
+          if (altitude > 0) {
+            return {
+              name: planet.name,
+              ra: equator.ra.toFixed(2),
+              dec: equator.dec.toFixed(2),
+              altitude
+            };
+          }
+          return null;
+        }).filter(planet => planet !== null);
       },
       calculateTargetsAltitudes() {
         const now = new Date();
@@ -99,7 +113,12 @@
           const ra = parseFloat(target.ra) * (Math.PI / 12); // convert hours to radians
           const dec = parseFloat(target.dec) * (Math.PI / 180); // convert degrees to radians
           // eslint-disable-next-line
-          const [_azimuth, altitude] = this.raDecToAltAz(ra, dec, this.$root.latitude * Math.PI / 180, this.$root.longitude * Math.PI / 180, jd_ut);
+          const [_azimuth, altitude] = this.raDecToAltAz(
+            ra, dec,
+            this.$root.latitude * Math.PI / 180,
+            this.$root.longitude * Math.PI / 180,
+            jd_ut
+          );
           target.altitude = altitude;
         });
       },
@@ -138,7 +157,7 @@
   .dropdown {
     position: relative;
     display: inline-block;
-    width: 80vw; /* Use 100% to make it responsive */
+    width: 80vw;
   
     .dropdown-button {
       width: 100%;
@@ -180,7 +199,6 @@
       box-shadow: 1px 1px 5px $shadow-color;
       max-height: 200px;
       overflow-y: auto;
-      min-width: fit-content;
   
       &.dark {
         background-color: #333;
@@ -203,14 +221,19 @@
         }
       }
   
-      .styled-select {
+      .options-list {
         width: 100%;
-        border: none;
-        box-shadow: none;
+      }
   
-        &.dark {
-          background-color: #333;
-          color: $dark-text;
+      .dropdown-item {
+        padding: 10px;
+        cursor: pointer;
+        &:hover {
+          background-color: #f1f1f1;
+        }
+  
+        &.dark:hover {
+          background-color: #555;
         }
       }
     }
