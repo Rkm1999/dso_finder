@@ -22,7 +22,7 @@
         <RADECInput v-model:ra-input="raInput" v-model:dec-input="decInput" :dark-mode="darkMode" />
       </div>
 
-      <CalibrationTracking :dark-mode="darkMode" @openCalibrationPopup="openCalibrationPopup" @startTracking="startTracking" />
+      <CalibrationTracking :dark-mode="darkMode" :ra-input="raInput" :dec-input="decInput" @openCalibrationPopup="openCalibrationPopup" @startTracking="startTracking" />
     </div>
 
     <div class="settings-button-container">
@@ -95,8 +95,8 @@ export default {
   },
   data() {
     return {
-      latitude: '',
-      longitude: '',
+      latitude: 0,
+      longitude: 0,
       rawAzimuth: 0,
       rawAltitude: 0,
       azimuth: 0,
@@ -359,16 +359,18 @@ export default {
   },
   created() {
     this.loadSettings();
-    this.getCurrentPosition();
-    this.getDeviceOrientation();
     this.updateLocalTime();
     setInterval(this.updateLocalTime, 1000);
+    this.gpsIntervalId = setInterval(this.getCurrentPosition, 900000); // 15 minutes
+    this.orientationIntervalId = setInterval(this.getDeviceOrientation, 50); // 50 milliseconds
   },
   mounted() {
     this.intervalId = setInterval(this.calculateCoordinates, 50);
   },
   beforeUnmount() {
     clearInterval(this.intervalId);
+    clearInterval(this.gpsIntervalId);
+    clearInterval(this.orientationIntervalId);
     window.removeEventListener("deviceorientation", this.handleOrientation, true);
     this.stopCalculatingDistance();
   },
