@@ -1,3 +1,4 @@
+<!-- CalibrationTracking.vue -->
 <template>
   <div class="column full-width">
     <h2 class="heading" :class="{ dark: darkMode }">Calibration and Tracking</h2>
