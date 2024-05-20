@@ -6,4 +6,19 @@ module.exports = defineConfig({
     port: 8080, // CHANGE YOUR PORT HERE!
     https: true,
   },
+  configureWebpack: {
+    module: {
+      rules: [
+        {
+          test: /\.csv$/,
+          loader: 'csv-loader',
+          options: {
+            dynamicTyping: true,
+            header: true,
+            skipEmptyLines: true
+          }
+        }
+      ]
+    }
+  ,}
 })

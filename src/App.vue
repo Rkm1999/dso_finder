@@ -95,8 +95,8 @@ export default {
   },
   data() {
     return {
-      latitude: '',
-      longitude: '',
+      latitude: 0,
+      longitude: 0,
       rawAzimuth: 0,
       rawAltitude: 0,
       azimuth: 0,
