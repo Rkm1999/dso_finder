@@ -25,9 +25,11 @@
       />
     </div>
     <div v-else>
-      <select class="styled-select" :class="{ dark: darkMode }" @change="selectObject">
-        <option v-for="object in objects" :key="object.NAME" :value="object">{{ object.NAME }}</option>
-      </select>
+      <CustomSearchableDropdown
+        :objects="objects"
+        :dark-mode="darkMode"
+        @select="selectObject"
+      />
     </div>
   </div>
 </template>
@@ -35,9 +37,10 @@
 <script>
 import ToggleButton from './ToggleButton.vue';
 import objects from '../object_list/dso_list.csv';
+import CustomSearchableDropdown from './CustomSearchableDropdown.vue';
 
 export default {
-  components: { ToggleButton },
+  components: { ToggleButton, CustomSearchableDropdown },
   props: ['raInput', 'decInput', 'darkMode'],
   data() {
     return {
@@ -59,10 +62,11 @@ export default {
     toggleInputMode(value) {
       this.inputMode = value;
     },
-    selectObject(event) {
-      const selectedObject = JSON.parse(event.target.value);
-      this.$emit('update:ra-input', selectedObject.RA);
-      this.$emit('update:dec-input', selectedObject.DEC);
+    selectObject(selectedObject) {
+      if (selectedObject) {
+        this.$emit('update:ra-input', selectedObject.RA);
+        this.$emit('update:dec-input', selectedObject.DEC);
+      }
     }
   }
 };
@@ -88,5 +92,10 @@ export default {
 
 .toggle-button-spacing {
   margin-bottom: 20px;
+}
+
+.styled-select {
+  width: 80vw;  /* Set the width to 80% of the viewport */
+  margin: 0 auto;  /* Center the select element */
 }
 </style>
