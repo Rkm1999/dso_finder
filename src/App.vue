@@ -111,15 +111,16 @@ export default {
       audioContext: null,
       oscillator: null,
       isBeeping: false,
+      beepIntervalId: null,
+      currentInterval: null, // Track the current interval
       raInput: '',
       decInput: '',
       showCalibrationPopup: false,
       showTrackingOverlay: false,
       showSettingsPopup: false,
-      setting1: '',
-      setting2: '',
       darkMode: false,
       beepThreshold: 2,
+      isContinuousBeeping: false // Track if continuous beeping is active
     };
   },
   computed: {
@@ -271,17 +272,46 @@ export default {
       const targetVector = VectorFromHorizon(new Spherical(targetAltitude, targetAzimuth, 1), new Date(this.localTime), null);
       let vectorDistance = AngleBetween(pointingVector, targetVector) * 180 / Math.PI;
       this.angularDistance = vectorDistance > 180 ? 360 - vectorDistance : vectorDistance;
+      this.updateBeepInterval();
+    },
+    updateBeepInterval() {
       if (this.angularDistance < this.beepThreshold) {
-        this.startBeep();
-      } else {
         this.stopBeep();
+        this.playContinuousBeep();
+      } else {
+        this.stopContinuousBeep();
+        if (this.angularDistance < this.beepThreshold + 3) {
+          this.startBeep(200);
+        } else if (this.angularDistance < this.beepThreshold + 6) {
+          this.startBeep(300);
+        } else if (this.angularDistance < this.beepThreshold + 9) {
+          this.startBeep(400);
+        } else if (this.angularDistance < this.beepThreshold + 12) {
+          this.startBeep(500);
+        } else if (this.angularDistance < this.beepThreshold + 15) {
+          this.startBeep(600);
+        } else if (this.angularDistance < this.beepThreshold + 18) {
+          this.startBeep(700);
+        } else if (this.angularDistance < this.beepThreshold + 21) {
+          this.startBeep(800);
+        } else if (this.angularDistance < this.beepThreshold + 24) {
+          this.startBeep(900);
+        } else if (this.angularDistance < this.beepThreshold + 27) {
+          this.startBeep(1000);
+        } else {
+          this.stopBeep();
+        }
       }
     },
-    startBeep() {
-      if (!this.isBeeping) {
-        this.isBeeping = true;
+    playContinuousBeep() {
+      if (!this.isContinuousBeeping) {
+        this.isContinuousBeeping = true;
         if (!this.audioContext) {
           this.audioContext = new AudioContext();
+        }
+        if (this.oscillator) {
+          this.oscillator.stop();
+          this.oscillator.disconnect();
         }
         this.oscillator = this.audioContext.createOscillator();
         this.oscillator.type = 'sine';
@@ -290,9 +320,53 @@ export default {
         this.oscillator.start();
       }
     },
+    stopContinuousBeep() {
+      if (this.isContinuousBeeping) {
+        this.isContinuousBeeping = false;
+        if (this.oscillator) {
+          this.oscillator.stop();
+          this.oscillator.disconnect();
+        }
+      }
+    },
+    startBeep(interval) {
+      if (this.currentInterval !== interval) {
+        if (this.beepIntervalId) {
+          clearInterval(this.beepIntervalId);
+        }
+        this.currentInterval = interval;
+        this.isBeeping = true;
+        this.beepIntervalId = setInterval(() => {
+          this.playBeep();
+        }, interval);
+      }
+    },
+    playBeep() {
+      if (!this.audioContext) {
+        this.audioContext = new AudioContext();
+      }
+      if (this.oscillator) {
+        this.oscillator.stop();
+        this.oscillator.disconnect();
+      }
+      this.oscillator = this.audioContext.createOscillator();
+      this.oscillator.type = 'sine';
+      this.oscillator.frequency.setValueAtTime(440, this.audioContext.currentTime);
+      this.oscillator.connect(this.audioContext.destination);
+      this.oscillator.start();
+      setTimeout(() => {
+        if (this.oscillator) {
+          this.oscillator.stop();
+          this.oscillator.disconnect();
+        }
+      }, 100);
+    },
     stopBeep() {
       if (this.isBeeping) {
         this.isBeeping = false;
+        clearInterval(this.beepIntervalId);
+        this.beepIntervalId = null;
+        this.currentInterval = null;
         if (this.oscillator) {
           this.oscillator.stop();
           this.oscillator.disconnect();
