@@ -276,31 +276,30 @@ export default {
     },
     updateBeepInterval() {
       if (this.angularDistance < this.beepThreshold) {
+        this.switchToContinuousBeep();
+      } else if (this.angularDistance <= this.beepThreshold + 30) {
+        this.stopContinuousBeep();
+        this.switchToIntervalBeep();
+      } else {
+        this.stopBeep();
+        this.stopContinuousBeep();
+      }
+    },
+    switchToContinuousBeep() {
+      if (!this.isContinuousBeeping) {
         this.stopBeep();
         this.playContinuousBeep();
+      }
+    },
+    switchToIntervalBeep() {
+      const intervals = [200, 300, 400, 500, 600, 700, 800, 900, 1000];
+      const distanceFromThreshold = this.angularDistance - this.beepThreshold;
+      const intervalIndex = Math.min(Math.floor(distanceFromThreshold / 3), intervals.length - 1);
+
+      if (intervalIndex >= 0 && intervalIndex < intervals.length) {
+        this.startBeep(intervals[intervalIndex]);
       } else {
-        this.stopContinuousBeep();
-        if (this.angularDistance < this.beepThreshold + 3) {
-          this.startBeep(200);
-        } else if (this.angularDistance < this.beepThreshold + 6) {
-          this.startBeep(300);
-        } else if (this.angularDistance < this.beepThreshold + 9) {
-          this.startBeep(400);
-        } else if (this.angularDistance < this.beepThreshold + 12) {
-          this.startBeep(500);
-        } else if (this.angularDistance < this.beepThreshold + 15) {
-          this.startBeep(600);
-        } else if (this.angularDistance < this.beepThreshold + 18) {
-          this.startBeep(700);
-        } else if (this.angularDistance < this.beepThreshold + 21) {
-          this.startBeep(800);
-        } else if (this.angularDistance < this.beepThreshold + 24) {
-          this.startBeep(900);
-        } else if (this.angularDistance < this.beepThreshold + 27) {
-          this.startBeep(1000);
-        } else {
-          this.stopBeep();
-        }
+        this.stopBeep();
       }
     },
     playContinuousBeep() {
@@ -314,7 +313,7 @@ export default {
           this.oscillator.disconnect();
         }
         this.oscillator = this.audioContext.createOscillator();
-        this.oscillator.type = 'sine';
+        this.oscillator.type = 'square';
         this.oscillator.frequency.setValueAtTime(440, this.audioContext.currentTime);
         this.oscillator.connect(this.audioContext.destination);
         this.oscillator.start();
@@ -336,6 +335,7 @@ export default {
         }
         this.currentInterval = interval;
         this.isBeeping = true;
+        this.playBeep(); // Play beep immediately when the interval changes
         this.beepIntervalId = setInterval(() => {
           this.playBeep();
         }, interval);
@@ -374,8 +374,12 @@ export default {
       }
     },
     openCalibrationPopup() {
-      this.calibrationResult = null;
-      this.showCalibrationPopup = true;
+      if (this.validateRADECInput()) {
+        this.calibrationResult = null;
+        this.showCalibrationPopup = true;
+      } else {
+        alert('Please select a target from the list or manually enter RA/DEC coordinates.');
+      }
     },
     closeModal() {
       this.showCalibrationPopup = false;
@@ -384,21 +388,29 @@ export default {
       this.performCalibration();
     },
     startTracking() {
-      this.calculateAngularDistance();
-      this.angularDistanceIntervalId = setInterval(() => {
+      if (this.validateRADECInput()) {
         this.calculateAngularDistance();
-      }, 50);
-      this.showTrackingOverlay = true;
+        this.angularDistanceIntervalId = setInterval(() => {
+          this.calculateAngularDistance();
+        }, 50);
+        this.showTrackingOverlay = true;
+      } else {
+        alert('Please select a target from the list or manually enter RA/DEC coordinates.');
+      }
     },
     stopTracking() {
       clearInterval(this.angularDistanceIntervalId);
       this.angularDistanceIntervalId = null;
       this.stopBeep();
+      this.stopContinuousBeep();
       this.showTrackingOverlay = false;
     },
     closeTrackingOverlay() {
       this.showTrackingOverlay = false;
       this.stopTracking();
+    },
+    validateRADECInput() {
+      return this.raInput.trim() !== '' && this.decInput.trim() !== '';
     },
     openSettingsPopup() {
       this.showSettingsPopup = true;
