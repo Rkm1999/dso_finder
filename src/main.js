@@ -1,8 +1,8 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import './registerServiceWorker'
-import { Analytics } from '@vercel/analytics/vue';
+import { inject } from '@vercel/analytics';
 
 createApp(App)
-  .use(Analytics)
+  .use(inject)
   .mount('#app');
