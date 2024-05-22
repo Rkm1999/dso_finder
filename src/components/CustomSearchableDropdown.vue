@@ -1,3 +1,4 @@
+<!-- CustomSearchableDropdown.vue -->
 <template>
     <div class="dropdown">
       <div class="dropdown-toggle" @click="toggleDropdown" :class="{ dark: darkMode }">
