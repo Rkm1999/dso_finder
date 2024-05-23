@@ -25,6 +25,12 @@
       <CalibrationTracking :dark-mode="darkMode" @openCalibrationPopup="openCalibrationPopup" @startTracking="startTracking" />
     </div>
 
+    <!-- Install button -->
+    <button v-if="installBtnVisible" @click="installApp" class="styled-button install-button">
+      Install App
+    </button>
+
+
     <div class="settings-button-container">
       <button class="styled-button" :class="{ dark: darkMode }" @click="openSettingsPopup">Settings</button>
     </div>
@@ -120,7 +126,10 @@ export default {
       showSettingsPopup: false,
       darkMode: false,
       beepThreshold: 2,
-      isContinuousBeeping: false // Track if continuous beeping is active
+      isContinuousBeeping: false, // Track if continuous beeping is active
+      installBtnVisible: false,
+      installPrompt: null,
+
     };
   },
   computed: {
@@ -442,6 +451,21 @@ export default {
       }
       window.location.reload(true); // Force reload to get the latest version
     },
+    installApp() {
+      this.installBtnVisible = false;
+      if (this.installPrompt) {
+        this.installPrompt.prompt();
+        this.installPrompt.userChoice.then((result) => {
+          if (result.outcome === "accepted") {
+            console.log("User accepted the install prompt");
+          } else {
+            console.log("User dismissed the install prompt");
+          }
+          this.installPrompt = null;
+        });
+      }
+    },
+
   },
   created() {
     this.loadSettings();
@@ -449,6 +473,12 @@ export default {
     this.getDeviceOrientation();
     this.updateLocalTime();
     setInterval(this.updateLocalTime, 1000);
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      this.installPrompt = e;
+      this.installBtnVisible = true;
+    });
+
   },
   mounted() {
     this.intervalId = setInterval(this.calculateCoordinates, 50);

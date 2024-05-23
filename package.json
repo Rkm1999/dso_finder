@@ -21,7 +21,8 @@
     "sass-loader": "^14.2.1",
     "serve": "^14.2.3",
     "vue": "^3.2.13",
-    "vue-select": "^4.0.0-beta.6"
+    "vue-select": "^4.0.0-beta.6",
+    "vue2-ios-pwa-prompt": "^1.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.12.16",
