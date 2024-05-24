@@ -1,3 +1,4 @@
+<!-- CustomTabs.vue -->
 <template>
   <div :class="['tabs', { dark: darkMode }]">
     <div class="tab-titles">

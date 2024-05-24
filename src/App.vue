@@ -242,7 +242,6 @@ export default {
         const coordinates = new RaDecToAltAz(ra, dec, this.latitude, this.longitude);
         this.targetAzimuth = coordinates.getAz();
         this.targetAltitude = coordinates.getAlt();
-        this.calculateAngularDistance(); // Ensure the angular distance is recalculated immediately
       } catch (error) {
         console.error('Error updating target coordinates:', error);
       }

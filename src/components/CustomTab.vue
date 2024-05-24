@@ -1,3 +1,4 @@
+<!-- CustomTab.vue -->
 <template>
   <div v-if="isActive">
     <slot></slot>
