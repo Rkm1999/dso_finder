@@ -1,3 +1,4 @@
+<!-- App.vue -->
 <template>
   <div id="app" :class="[theme]">
     <div class="content-container">
@@ -7,7 +8,7 @@
       </div>
 
       <div class="row">
-        <AltAzDisplay :altitude="altitude" :azimuth="azimuth" />
+        <AltAzDisplay :altitude="altitude" :azimuth="azimuth" label="Alt/Az" />
         <AltAzDisplay :altitude="targetAltitude" :azimuth="targetAzimuth" label="Target Alt/Az" />
       </div>
 
