@@ -26,7 +26,7 @@
     </div>
     <div v-else>
       <CustomSearchableDropdown
-        :objects="objects"
+        :objects="planets.concat(objects)"
         :dark-mode="darkMode"
         @select="selectObject"
       />
@@ -38,10 +38,11 @@
 import ToggleButton from './ToggleButton.vue';
 import objects from '../object_list/dso_list.csv';
 import CustomSearchableDropdown from './CustomSearchableDropdown.vue';
+import { Observer, Equator } from 'astronomy-engine';
 
 export default {
   components: { ToggleButton, CustomSearchableDropdown },
-  props: ['raInput', 'decInput', 'darkMode'],
+  props: ['raInput', 'decInput', 'darkMode', 'latitude', 'longitude'],
   data() {
     return {
       inputMode: 'list',  // Default to list mode
@@ -50,23 +51,47 @@ export default {
         { value: 'manual', text: 'Manual Input' }
       ],
       objects: objects,
+      planets: [],
       localRaInput: this.raInput,
       localDecInput: this.decInput
+
     };
-  },
-  watch: {
-    raInput(newVal) {
-      this.localRaInput = newVal;
-    },
-    decInput(newVal) {
-      this.localDecInput = newVal;
-    }
   },
   methods: {
     emitUpdateCoordinates() {
       this.$emit('update:ra-input', this.localRaInput);
       this.$emit('update:dec-input', this.localDecInput);
       this.$emit('update-coordinates', parseFloat(this.localRaInput), parseFloat(this.localDecInput));
+    },
+
+    async calculatePlanetPositions() {
+      const planetNames = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Moon'];
+      const now = new Date();
+      const observer = new Observer(this.latitude, this.longitude, 0);
+
+      this.planets = await Promise.all(planetNames.map(async (name) => {
+        const equator = Equator(name, now, observer, true, true);
+        const raHours = equator.ra;
+        const raHoursPart = Math.floor(raHours);
+        const raMinutesPart = ((raHours - raHoursPart) * 60).toFixed(2).padStart(5, '0');
+
+        const decDegrees = equator.dec;
+        const decDegreesPart = Math.trunc(decDegrees);
+        const decMinutesPart = Math.abs(((decDegrees - decDegreesPart) * 60)).toFixed(2).padStart(5, '0');
+
+        return {
+          NAME: name,
+          RA: `${raHoursPart}.${raMinutesPart}`,
+          DEC: `${decDegreesPart}.${decMinutesPart}`,
+          display: `${name} - RA: ${raHoursPart}.${raMinutesPart} DEC: ${decDegreesPart}.${decMinutesPart}`
+        };
+      }));
+    },
+    updateRaInput(event) {
+      this.$emit('update:ra-input', event.target.value);
+    },
+    updateDecInput(event) {
+      this.$emit('update:dec-input', event.target.value);
     },
     toggleInputMode(value) {
       this.inputMode = value;
@@ -78,6 +103,9 @@ export default {
         this.emitUpdateCoordinates();
       }
     }
+  },
+  created() {
+    this.calculatePlanetPositions();
   }
 };
 </script>

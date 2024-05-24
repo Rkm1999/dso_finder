@@ -18,7 +18,14 @@
       />
 
       <div class="row">
-        <RADECInput v-model:ra-input="raInput" v-model:dec-input="decInput" :dark-mode="darkMode" @update-coordinates="updateTargetCoordinates" />
+        <RADECInput
+          v-model:ra-input="raInput"
+          v-model:dec-input="decInput"
+          :dark-mode="darkMode"
+          @update-coordinates="updateTargetCoordinates"
+          :latitude="latitude"
+          :longitude="longitude"
+        />
       </div>
 
       <CalibrationTracking :dark-mode="darkMode" @openCalibrationPopup="openCalibrationPopup" @startTracking="startTracking" />
@@ -115,7 +122,8 @@ export default {
       showSettingsPopup: false,
       darkMode: false,
       beepThreshold: 2,
-      isContinuousBeeping: false // Track if continuous beeping is active
+      isContinuousBeeping: false, // Track if continuous beeping is active
+      installBtnVisible: false
     };
   },
   computed: {
