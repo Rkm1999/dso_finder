@@ -69,7 +69,7 @@ export default {
   color: #007BFF;
 }
 .tab-titles button.dark {
-  background-color: #333;
+  background-color: #000;
   color: #ff0000;
 }
 .tab-content {
