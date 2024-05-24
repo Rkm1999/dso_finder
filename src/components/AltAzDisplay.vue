@@ -56,6 +56,6 @@ p {
 }
 
 .dark p {
-  color: #fff;
+  color: #ff0000;
 }
 </style>
