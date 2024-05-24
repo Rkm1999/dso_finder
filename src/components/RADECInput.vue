@@ -25,23 +25,45 @@
       />
     </div>
     <div v-else>
-      <CustomSearchableDropdown
-        :objects="planets.concat(objects)"
-        :dark-mode="darkMode"
-        @select="selectObject"
-      />
+      <CustomTabs :darkMode="darkMode">
+        <CustomTab title="Planets">
+          <CustomSearchableDropdown
+            :objects="planets"
+            :dark-mode="darkMode"
+            @select="selectObject"
+          />
+        </CustomTab>
+        <CustomTab title="DSOs">
+          <CustomSearchableDropdown
+            :objects="dso"
+            :dark-mode="darkMode"
+            @select="selectObject"
+          />
+        </CustomTab>
+        <CustomTab title="Align Stars">
+          <CustomSearchableDropdown
+            :objects="align"
+            :dark-mode="darkMode"
+            @select="selectObject"
+          />
+        </CustomTab>
+
+      </CustomTabs>
     </div>
   </div>
 </template>
 
 <script>
 import ToggleButton from './ToggleButton.vue';
-import objects from '../object_list/dso_list.csv';
+import dso from '../object_list/dso_list.csv';
+import align from '../object_list/AlignmentStarList.csv';
 import CustomSearchableDropdown from './CustomSearchableDropdown.vue';
+import CustomTabs from './CustomTabs.vue';
+import CustomTab from './CustomTab.vue';
 import { Observer, Equator } from 'astronomy-engine';
 
 export default {
-  components: { ToggleButton, CustomSearchableDropdown },
+  components: { ToggleButton, CustomSearchableDropdown, CustomTabs, CustomTab },
   props: ['raInput', 'decInput', 'darkMode', 'latitude', 'longitude'],
   data() {
     return {
@@ -50,11 +72,11 @@ export default {
         { value: 'list', text: 'Select from List' },
         { value: 'manual', text: 'Manual Input' }
       ],
-      objects: objects,
+      dso: dso,
+      align: align,
       planets: [],
       localRaInput: this.raInput,
       localDecInput: this.decInput
-
     };
   },
   methods: {
@@ -63,7 +85,6 @@ export default {
       this.$emit('update:dec-input', this.localDecInput);
       this.$emit('update-coordinates', parseFloat(this.localRaInput), parseFloat(this.localDecInput));
     },
-
     async calculatePlanetPositions() {
       const planetNames = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Moon'];
       const now = new Date();
@@ -72,18 +93,18 @@ export default {
       this.planets = await Promise.all(planetNames.map(async (name) => {
         const equator = Equator(name, now, observer, true, true);
         const raHours = equator.ra;
-        const raHoursPart = Math.floor(raHours);
-        const raMinutesPart = ((raHours - raHoursPart) * 60).toFixed(2).padStart(5, '0');
+        const hours = Math.floor(raHours);
+        const minutes = ((raHours - hours) * 60).toFixed(2).padStart(5, '0'); // Ensure minutes are always two digits
 
         const decDegrees = equator.dec;
-        const decDegreesPart = Math.trunc(decDegrees);
-        const decMinutesPart = Math.abs(((decDegrees - decDegreesPart) * 60)).toFixed(2).padStart(5, '0');
+        const decDegreesInteger = Math.trunc(decDegrees);
+        const decMinutes = ((Math.abs(decDegrees) - Math.abs(decDegreesInteger)) * 60).toFixed(2).padStart(5, '0'); // Ensure minutes are always two digits
 
         return {
           NAME: name,
-          RA: `${raHoursPart}.${raMinutesPart}`,
-          DEC: `${decDegreesPart}.${decMinutesPart}`,
-          display: `${name} - RA: ${raHoursPart}.${raMinutesPart} DEC: ${decDegreesPart}.${decMinutesPart}`
+          RA: `${hours}.${minutes}`,
+          DEC: `${decDegreesInteger}.${decMinutes}`,
+          display: `${name} - RA: ${hours}.${minutes} DEC: ${decDegreesInteger}.${decMinutes}`
         };
       }));
     },
