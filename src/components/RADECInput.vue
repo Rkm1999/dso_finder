@@ -1,4 +1,3 @@
-<!-- RADECInput.vue -->
 <template>
   <div class="column full-width">
     <h2 class="heading" :class="{ dark: darkMode }">RA/DEC Input</h2>
@@ -13,15 +12,15 @@
       <input
         class="styled-input"
         :class="{ dark: darkMode }"
-        :value="raInput"
-        @input="updateRaInput"
+        v-model="localRaInput"
+        @input="emitUpdateCoordinates"
         placeholder="RA (hours)"
       />
       <input
         class="styled-input"
         :class="{ dark: darkMode }"
-        :value="decInput"
-        @input="updateDecInput"
+        v-model="localDecInput"
+        @input="emitUpdateCoordinates"
         placeholder="DEC (degrees)"
       />
     </div>
@@ -50,23 +49,33 @@ export default {
         { value: 'list', text: 'Select from List' },
         { value: 'manual', text: 'Manual Input' }
       ],
-      objects: objects
+      objects: objects,
+      localRaInput: this.raInput,
+      localDecInput: this.decInput
     };
   },
-  methods: {
-    updateRaInput(event) {
-      this.$emit('update:ra-input', event.target.value);
+  watch: {
+    raInput(newVal) {
+      this.localRaInput = newVal;
     },
-    updateDecInput(event) {
-      this.$emit('update:dec-input', event.target.value);
+    decInput(newVal) {
+      this.localDecInput = newVal;
+    }
+  },
+  methods: {
+    emitUpdateCoordinates() {
+      this.$emit('update:ra-input', this.localRaInput);
+      this.$emit('update:dec-input', this.localDecInput);
+      this.$emit('update-coordinates', parseFloat(this.localRaInput), parseFloat(this.localDecInput));
     },
     toggleInputMode(value) {
       this.inputMode = value;
     },
     selectObject(selectedObject) {
       if (selectedObject) {
-        this.$emit('update:ra-input', selectedObject.RA);
-        this.$emit('update:dec-input', selectedObject.DEC);
+        this.localRaInput = selectedObject.RA;
+        this.localDecInput = selectedObject.DEC;
+        this.emitUpdateCoordinates();
       }
     }
   }

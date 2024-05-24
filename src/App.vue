@@ -1,4 +1,3 @@
-<!-- App.vue -->
 <template>
   <div id="app" :class="[theme]">
     <div class="content-container">
@@ -9,7 +8,7 @@
 
       <div class="row">
         <AltAzDisplay :altitude="altitude" :azimuth="azimuth" />
-        <RADecDisplay :results="results" />
+        <AltAzDisplay :altitude="targetAltitude" :azimuth="targetAzimuth" label="Target Alt/Az" />
       </div>
 
       <PermissionButtons
@@ -19,7 +18,7 @@
       />
 
       <div class="row">
-        <RADECInput v-model:ra-input="raInput" v-model:dec-input="decInput" :dark-mode="darkMode" />
+        <RADECInput v-model:ra-input="raInput" v-model:dec-input="decInput" :dark-mode="darkMode" @update-coordinates="updateTargetCoordinates" />
       </div>
 
       <CalibrationTracking :dark-mode="darkMode" @openCalibrationPopup="openCalibrationPopup" @startTracking="startTracking" />
@@ -29,7 +28,6 @@
     <button v-if="installBtnVisible" @click="installApp" class="styled-button install-button">
       Install App
     </button>
-
 
     <div class="settings-button-container">
       <button class="styled-button" :class="{ dark: darkMode }" @click="openSettingsPopup">Settings</button>
@@ -65,20 +63,10 @@
 
 <script>
 import { Geolocation } from '@capacitor/geolocation';
-import {
-  Observer,
-  MakeTime,
-  Spherical,
-  VectorFromHorizon,
-  Rotation_HOR_EQJ,
-  RotateVector,
-  EquatorFromVector,
-  AngleBetween
-} from 'astronomy-engine';
+import RaDecToAltAz from 'radectoaltaz';
 import GPSDisplay from './components/GPSDisplay.vue';
 import LocalTimeDisplay from './components/LocalTimeDisplay.vue';
 import AltAzDisplay from './components/AltAzDisplay.vue';
-import RADecDisplay from './components/RADecDisplay.vue';
 import RADECInput from './components/RADECInput.vue';
 import PermissionButtons from './components/PermissionButtons.vue';
 import CalibrationTracking from './components/CalibrationTracking.vue';
@@ -91,7 +79,6 @@ export default {
     GPSDisplay,
     LocalTimeDisplay,
     AltAzDisplay,
-    RADecDisplay,
     RADECInput,
     PermissionButtons,
     CalibrationTracking,
@@ -121,15 +108,14 @@ export default {
       currentInterval: null, // Track the current interval
       raInput: '',
       decInput: '',
+      targetAltitude: 0, // Target Altitude
+      targetAzimuth: 0, // Target Azimuth
       showCalibrationPopup: false,
       showTrackingOverlay: false,
       showSettingsPopup: false,
       darkMode: false,
       beepThreshold: 2,
-      isContinuousBeeping: false, // Track if continuous beeping is active
-      installBtnVisible: false,
-      installPrompt: null,
-
+      isContinuousBeeping: false // Track if continuous beeping is active
     };
   },
   computed: {
@@ -145,6 +131,7 @@ export default {
         this.longitude = coordinates.coords.longitude;
       } catch (error) {
         console.error('Error getting GPS position:', error);
+        alert('Unable to retrieve GPS position. Please ensure location services are enabled.');
       }
     },
     updateLocalTime() {
@@ -152,14 +139,14 @@ export default {
     },
     getDeviceOrientation() {
       this.handleOrientation = this.handleOrientation.bind(this);
-      window.addEventListener("deviceorientation", this.handleOrientation, true);
-      console.log("Listener for device orientation added.");
+      window.addEventListener('deviceorientation', this.handleOrientation, true);
+      console.log('Listener for device orientation added.');
     },
     handleOrientation(event) {
       if (event.absolute) {
-        console.log("Got absolute orientation.");
+        console.log('Got absolute orientation.');
       } else {
-        console.log("Orientation not absolute.");
+        console.log('Orientation not absolute.');
       }
       let rawAltitude = event.beta;
       let rawAzimuth = event.alpha;
@@ -169,7 +156,7 @@ export default {
         this.rawAzimuth = rawAzimuth;
         this.applyCalibration(rawAltitude, rawAzimuth);
       } else {
-        console.log("Orientation data not available.");
+        console.log('Orientation data not available.');
       }
     },
     applyCalibration(rawAltitude, rawAzimuth) {
@@ -184,44 +171,35 @@ export default {
       this.azimuth = calibratedAzimuth;
       console.log(`Calibrated Azimuth: ${calibratedAzimuth}, Calibrated Altitude: ${adjustedAltitude}`);
     },
-    calculateCoordinates() {
-      this.updateLocalTime();
-      this.getCurrentPosition().then(() => {
-        const observer = new Observer(this.latitude, this.longitude, 0);
-        let time = MakeTime(new Date(this.localTime));
-        const correctedAzimuth = this.azimuth;
-        const correctedAltitude = this.altitude;
-        if (time) {
-          const result = this.solveCoordinates(observer, time, correctedAzimuth, correctedAltitude);
-          this.results = { j2000_ra: result.ra, j2000_dec: result.dec };
-        }
-      });
-    },
-    solveCoordinates(observer, time, azimuth, altitude, refract = false) {
-      const hor_sphere = new Spherical(altitude, azimuth, 1);
-      const hor_vec = VectorFromHorizon(hor_sphere, time, refract ? 'normal' : null);
-      const eqj_vec = RotateVector(Rotation_HOR_EQJ(time, observer), hor_vec);
-      return EquatorFromVector(eqj_vec);
-    },
     async performCalibration() {
       if (!this.isCalibrating) {
         this.isCalibrating = true;
-        const jd_ut = this.dateToJulianDate(new Date(this.localTime));
-        const ra = parseFloat(this.raInput) * Math.PI / 12;
-        const dec = parseFloat(this.decInput) * Math.PI / 180;
-        const [expectedAzimuth, expectedAltitude] = this.raDecToAltAz(ra, dec, this.latitude * Math.PI / 180, this.longitude * Math.PI / 180, jd_ut);
-        const azimuthCorrection = (expectedAzimuth * 180 / Math.PI - this.rawAzimuth + 360) % 360;
-        const altitudeCorrection = expectedAltitude * 180 / Math.PI - this.rawAltitude;
+        const ra = parseFloat(this.raInput);
+        const dec = parseFloat(this.decInput);
+        const lat = this.latitude;
+        const lng = this.longitude;
+
+        const coordinates = new RaDecToAltAz(ra, dec, lat, lng);
+        const expectedAzimuth = coordinates.getAz();
+        const expectedAltitude = coordinates.getAlt();
+
+        const azimuthCorrection = (expectedAzimuth - this.rawAzimuth + 360) % 360;
+        const altitudeCorrection = expectedAltitude - this.rawAltitude;
+
         this.azimuthOffset = azimuthCorrection;
         this.altitudeOffset = altitudeCorrection;
+
         this.calibrationResult = {
-          expectedAzimuth: expectedAzimuth * 180 / Math.PI,
-          expectedAltitude: expectedAltitude * 180 / Math.PI,
+          expectedAzimuth: expectedAzimuth,
+          expectedAltitude: expectedAltitude,
           actualAzimuth: this.rawAzimuth,
           actualAltitude: this.rawAltitude,
           azimuthCorrection: azimuthCorrection,
           altitudeCorrection: altitudeCorrection
         };
+
+        this.updateTargetCoordinates(ra, dec); // Ensure the target coordinates are updated immediately
+
         this.isCalibrating = false;
       }
     },
@@ -232,56 +210,34 @@ export default {
         this.showCalibrationPopup = true;
       });
     },
-    dateToJulianDate(date) {
-      return date.valueOf() / 86400000 + 2440587.5;
-    },
-    raDecToAltAz(ra, dec, lat, lon, jd_ut) {
-      const gmst = this.greenwichMeanSiderealTime(jd_ut);
-      let localSiderealTime = (gmst + lon) % (2 * Math.PI);
-      let H = (localSiderealTime - ra + Math.PI) % (2 * Math.PI) - Math.PI;
-      let az = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(lat) - Math.tan(dec) * Math.cos(lat)) + Math.PI;
-      let alt = Math.asin(Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec) * Math.cos(H));
-      return [az % (2 * Math.PI), alt];
-    },
-    greenwichMeanSiderealTime(jd) {
-      const t = (jd - 2451545.0) / 36525.0;
-      let gmst = this.earthRotationAngle(jd) + (0.014506 + 4612.156534 * t + 1.3915817 * t * t - 0.00000044 * t * t * t - 0.000029956 * t * t * t * t - 0.0000000368 * t * t * t * t * t) * Math.PI / 648000;
-      return (gmst % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-    },
-    earthRotationAngle(jd) {
-      const t = jd - 2451545.0;
-      let theta = 2 * Math.PI * ((jd % 1.0) + 0.7790572732640 + 0.00273781191135448 * t);
-      return (theta % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-    },
-    startCalculatingDistance() {
-      if (this.angularDistanceIntervalId !== null) {
-        clearInterval(this.angularDistanceIntervalId);
-      }
-      this.calculateAngularDistance();
-      this.angularDistanceIntervalId = setInterval(() => {
-        this.calculateAngularDistance();
-      }, 50);
-    },
-    stopCalculatingDistance() {
-      if (this.angularDistanceIntervalId !== null) {
-        clearInterval(this.angularDistanceIntervalId);
-        this.angularDistanceIntervalId = null;
+    async calculateAngularDistance() {
+      try {
+        const targetAzimuth = this.targetAzimuth;
+        const targetAltitude = this.targetAltitude;
+
+        const az1 = this.azimuth * Math.PI / 180;
+        const alt1 = this.altitude * Math.PI / 180;
+        const az2 = targetAzimuth * Math.PI / 180;
+        const alt2 = targetAltitude * Math.PI / 180;
+
+        const cosAngularDistance = Math.sin(alt1) * Math.sin(alt2) +
+                                   Math.cos(alt1) * Math.cos(alt2) * Math.cos(az1 - az2);
+        this.angularDistance = Math.acos(cosAngularDistance) * 180 / Math.PI;
+
+        this.updateBeepInterval();
+      } catch (error) {
+        console.error('Error calculating angular distance:', error);
       }
     },
-    calculateAngularDistance() {
-      const jd_ut = this.dateToJulianDate(new Date(this.localTime));
-      const observerLatRadians = this.latitude * Math.PI / 180;
-      const observerLonRadians = this.longitude * Math.PI / 180;
-      const targetRaRadians = parseFloat(this.raInput) * Math.PI / 12;
-      const targetDecRadians = parseFloat(this.decInput) * Math.PI / 180;
-      const [targetAzimuth, targetAltitude] = this.raDecToAltAz(targetRaRadians, targetDecRadians, observerLatRadians, observerLonRadians, jd_ut);
-      const pointingAzimuthRadians = this.azimuth * Math.PI / 180;
-      const pointingAltitudeRadians = this.altitude * Math.PI / 180;
-      const pointingVector = VectorFromHorizon(new Spherical(pointingAltitudeRadians, pointingAzimuthRadians, 1), new Date(this.localTime), null);
-      const targetVector = VectorFromHorizon(new Spherical(targetAltitude, targetAzimuth, 1), new Date(this.localTime), null);
-      let vectorDistance = AngleBetween(pointingVector, targetVector) * 180 / Math.PI;
-      this.angularDistance = vectorDistance > 180 ? 360 - vectorDistance : vectorDistance;
-      this.updateBeepInterval();
+    updateTargetCoordinates(ra, dec) {
+      try {
+        const coordinates = new RaDecToAltAz(ra, dec, this.latitude, this.longitude);
+        this.targetAzimuth = coordinates.getAz();
+        this.targetAltitude = coordinates.getAlt();
+        this.calculateAngularDistance(); // Ensure the angular distance is recalculated immediately
+      } catch (error) {
+        console.error('Error updating target coordinates:', error);
+      }
     },
     updateBeepInterval() {
       if (this.angularDistance < this.beepThreshold) {
@@ -419,7 +375,7 @@ export default {
       this.stopTracking();
     },
     validateRADECInput() {
-      return this.raInput.trim() !== '' && this.decInput.trim() !== '';
+      return this.raInput !== '' && this.decInput !== '';
     },
     openSettingsPopup() {
       this.showSettingsPopup = true;
@@ -451,21 +407,6 @@ export default {
       }
       window.location.reload(true); // Force reload to get the latest version
     },
-    installApp() {
-      this.installBtnVisible = false;
-      if (this.installPrompt) {
-        this.installPrompt.prompt();
-        this.installPrompt.userChoice.then((result) => {
-          if (result.outcome === "accepted") {
-            console.log("User accepted the install prompt");
-          } else {
-            console.log("User dismissed the install prompt");
-          }
-          this.installPrompt = null;
-        });
-      }
-    },
-
   },
   created() {
     this.loadSettings();
@@ -473,19 +414,13 @@ export default {
     this.getDeviceOrientation();
     this.updateLocalTime();
     setInterval(this.updateLocalTime, 1000);
-    window.addEventListener("beforeinstallprompt", (e) => {
-      e.preventDefault();
-      this.installPrompt = e;
-      this.installBtnVisible = true;
-    });
-
   },
   mounted() {
     this.intervalId = setInterval(this.calculateCoordinates, 50);
   },
   beforeUnmount() {
     clearInterval(this.intervalId);
-    window.removeEventListener("deviceorientation", this.handleOrientation, true);
+    window.removeEventListener('deviceorientation', this.handleOrientation, true);
     this.stopCalculatingDistance();
   },
 };
